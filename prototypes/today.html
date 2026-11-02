@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="robots" content="noindex,nofollow" />
+<title>Nouri Today Prototypes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Oswald:wght@600;700&display=swap" rel="stylesheet" />
+<style>
+/* =========================================================
+   Nouri Today: prototype harness (three directions)
+   Not production code. Lives outside index.html on purpose.
+   ========================================================= */
+*{box-sizing:border-box}
+html{-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
+body{margin:0;min-height:100dvh;background:#111;font-family:ui-rounded,"SF Pro Rounded",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button{font:inherit;color:inherit;touch-action:manipulation;-webkit-user-select:none;user-select:none;cursor:pointer}
+img{display:block}
+#stage{min-height:100dvh}
+/* Harness band so the picker never covers the design being judged */
+body{padding-top:100px}
+.v{min-height:calc(100dvh - 100px)}
+:root{--ease-out:cubic-bezier(.23,1,.32,1);--ease-in-out:cubic-bezier(.77,0,.175,1);--ease-drawer:cubic-bezier(.32,.72,0,1)}
+
+/* Phone frame: full-bleed on phones, a centered 390px column on bigger screens */
+.v{position:relative;min-height:100dvh;max-width:430px;margin:0 auto;overflow:hidden;padding:env(safe-area-inset-top,0px) 0 calc(84px + env(safe-area-inset-bottom,0px))}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* Painted plate stand-ins: no photo hosts reachable while building.
+   "Use my photos" (harness, top right) swaps in real images. */
+.photo{position:relative;overflow:hidden;background-color:var(--t1)}
+.photo::before{content:"";position:absolute;inset:0;background:
+  radial-gradient(circle closest-side at 57% 44%,var(--a1) 0 9%,transparent 10%),
+  radial-gradient(circle closest-side at 44% 58%,var(--a2) 0 8%,transparent 9%),
+  radial-gradient(circle closest-side at 55% 60%,var(--a1) 0 6%,transparent 7%),
+  radial-gradient(circle closest-side at 43% 45%,var(--a3) 0 7%,transparent 8%),
+  radial-gradient(circle closest-side at 50% 52%,var(--base) 0 60%,var(--rim) 62% 76%,transparent 77%),
+  radial-gradient(circle closest-side at 51% 55%,rgba(0,0,0,.3) 0 74%,transparent 86%),
+  linear-gradient(135deg,var(--t1),var(--t2))}
+.photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.photo:has(img)::before{display:none}
+
+/* Toast with undo, shared mechanics, themed per variant */
+.toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));z-index:30;display:flex;align-items:center;gap:6px;max-width:min(400px,calc(100% - 24px));padding:6px 6px 6px 16px;border-radius:999px;transform:translate(-50%,12px);opacity:0;pointer-events:none;transition:transform 220ms var(--ease-out),opacity 220ms var(--ease-out);font-size:14px;font-weight:650}
+.toast.is-on{transform:translate(-50%,0);opacity:1;pointer-events:auto}
+.toast span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toast button{min-height:44px;padding:0 14px;border:0;border-radius:999px;font-weight:800;flex:0 0 auto}
+
+/* Adjust sheet, shared mechanics */
+.scrim{position:fixed;inset:0;z-index:40;background:rgba(10,14,10,.38);opacity:0;pointer-events:none;transition:opacity 240ms var(--ease-out)}
+.sheet{position:fixed;left:50%;bottom:0;z-index:41;width:min(430px,100%);padding:18px 18px calc(20px + env(safe-area-inset-bottom,0px));border-radius:26px 26px 0 0;transform:translate(-50%,100%);transition:transform 300ms var(--ease-drawer);overscroll-behavior:contain}
+.v.adjusting .scrim{opacity:1;pointer-events:auto}
+.v.adjusting .sheet{transform:translate(-50%,0)}
+.sheet h3{margin:0 0 4px;font-size:18px}
+.sheet p{margin:0 0 14px;font-size:14px;opacity:.75}
+.sheet .grp{margin:12px 0 0}
+.sheet .lbl{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;opacity:.7;margin-bottom:8px}
+.sheet .opts{display:flex;gap:8px;flex-wrap:wrap}
+.sheet .opt{min-height:44px;padding:0 16px;border-radius:999px;font-weight:750;font-size:15px}
+.sheet .done{width:100%;min-height:50px;margin-top:18px;border:0;border-radius:16px;font-weight:800;font-size:16px}
+
+/* Bottom nav, shared mechanics */
+.nav{position:fixed;left:50%;bottom:0;z-index:20;transform:translateX(-50%);width:min(430px,100%);display:flex;justify-content:space-around;padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px))}
+.nav button{flex:1;min-height:52px;border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:12px;font-weight:700;border-radius:14px}
+.nav svg{width:22px;height:22px}
+
+/* Swap motion primitives (transform/opacity only) */
+.slot{position:relative}
+.card{transition:transform 260ms var(--ease-out),opacity 220ms var(--ease-out)}
+
+/* ================= A · Scallion & Plate ================= */
+.v-a{background:#f2f5f0;color:#15261b}
+.v-a .top{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 6px}
+.v-a .hi{display:flex;align-items:center;gap:10px}
+.v-a .hi img{width:40px;height:40px;border-radius:12px;background:#e3ecd6;object-fit:contain}
+.v-a .hi b{display:block;font-size:13px;font-weight:700;color:#4c5f50}
+.v-a .hi strong{display:block;font-size:20px;font-weight:850;letter-spacing:-.02em;line-height:1.1}
+.v-a .add{width:44px;height:44px;border-radius:50%;border:0;background:#fff;color:#1f4b2f;box-shadow:0 1px 0 #dfe6da,0 6px 16px rgba(31,75,47,.12);display:grid;place-items:center;transition:transform 120ms var(--ease-out)}
+.v-a .add:active{transform:scale(.94)}
+.v-a .panel{margin:8px 10px 0;padding:12px 10px 10px;border-radius:30px 30px 26px 26px;background:#1f4b2f;color:#eef4e6}
+.v-a .panel-head{display:flex;align-items:center;justify-content:space-between;padding:0 4px 10px}
+.v-a .panel-head span{font-size:13px;font-weight:700;opacity:.8}
+.v-a .chip{min-height:44px;padding:0 14px 0 16px;border:0;border-radius:999px;background:#2c6140;color:#f2f7ea;font-weight:750;font-size:14px;display:inline-flex;align-items:center;gap:6px;transition:transform 120ms var(--ease-out)}
+.v-a .chip:active{transform:scale(.96)}
+.v-a .grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:232px 176px;gap:10px}
+.v-a .slot{border-radius:22px;overflow:hidden}
+.v-a .slot[data-slot="0"]{grid-column:1/3}
+.v-a .card{position:absolute;inset:0;border-radius:22px;overflow:hidden;background:#173a24}
+.v-a .card .photo{position:absolute;inset:0}
+.v-a .strip{position:absolute;left:8px;right:8px;bottom:8px;display:flex;align-items:center;gap:8px;padding:10px 8px 10px 14px;border-radius:16px;background:#f6f8f3;color:#15261b}
+.v-a .strip h3{margin:0;font-size:19px;line-height:1.1;font-weight:850;letter-spacing:-.02em}
+.v-a .strip p{margin:3px 0 0;font-size:13px;color:#4c5f50;font-weight:600}
+.v-a .strip .t{flex:1;min-width:0}
+.v-a .strip .why{display:block;margin-top:3px;font-size:13px;color:#2c6140;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v-a .choose{min-height:44px;padding:0 16px;border:0;border-radius:14px;background:#1f4b2f;color:#fff;font-weight:800;font-size:15px;flex:0 0 auto;transition:transform 120ms var(--ease-out),background-color 160ms}
+.v-a .choose:active{transform:scale(.96)}
+.v-a .slot:not([data-slot="0"]) .strip{left:6px;right:6px;bottom:6px;padding:8px 6px 8px 10px;border-radius:14px}
+.v-a .slot:not([data-slot="0"]) .strip h3{font-size:15px}
+.v-a .slot:not([data-slot="0"]) .strip p{font-size:12px}
+.v-a .slot:not([data-slot="0"]) .choose{width:44px;padding:0;display:grid;place-items:center}
+.v-a .skip{position:absolute;top:8px;right:8px;min-height:44px;padding:0 14px;border:0;border-radius:999px;background:rgba(14,30,19,.55);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:#fff;font-size:13px;font-weight:750;transition:transform 120ms var(--ease-out)}
+.v-a .slot:not([data-slot="0"]) .skip{width:44px;padding:0;display:grid;place-items:center}
+.v-a .skip:active{transform:scale(.95)}
+.v-a .tag{position:absolute;top:10px;left:10px;padding:6px 10px;border-radius:999px;background:#f6f8f3;color:#1f4b2f;font-size:12px;font-weight:800}
+.v-a .peek{position:absolute;right:-6px;bottom:18%;width:58px;z-index:3;transform:translateX(110%) rotate(-8deg);transition:transform 220ms var(--ease-out);pointer-events:none;filter:drop-shadow(0 6px 10px rgba(0,0,0,.25))}
+.v-a .slot.nudging .peek{transform:translateX(18%) rotate(-14deg)}
+.v-a .card.out{transform:translateX(-22px) scale(.98);opacity:0;transition-duration:180ms}
+.v-a .card.in{transform:translateX(28px);opacity:0;transition:none}
+.v-a .slot.is-chosen .choose{background:#9cc66b;color:#15261b}
+.v-a.has-choice .slot:not(.is-chosen) .card{opacity:.55}
+.v-a .note{display:flex;align-items:center;gap:10px;margin:12px 16px 0;font-size:14px;color:#4c5f50;font-weight:600}
+.v-a .toast{background:#15261b;color:#fff}.v-a .toast button{background:#9cc66b;color:#15261b}
+.v-a .sheet{background:#f6f8f3;color:#15261b}
+.v-a .opt{border:1px solid #d5dfcf;background:#fff;color:#1f4b2f}
+.v-a .opt[aria-pressed="true"]{background:#1f4b2f;border-color:#1f4b2f;color:#fff}
+.v-a .done{background:#1f4b2f;color:#fff}
+.v-a .nav{background:rgba(242,245,240,.94);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-top:1px solid #e1e7dc;color:#5d6e60}
+.v-a .nav [aria-current]{color:#1f4b2f;background:#e3ecd6}
+
+/* ================= B · Night Market ================= */
+.v-b{background:#1a1512;color:#f3e7d3;background-image:radial-gradient(120% 60% at 50% -10%,#3a2618 0,transparent 60%)}
+.v-b .top{display:flex;align-items:center;gap:12px;padding:14px 16px 4px}
+.v-b .lantern{position:relative;width:46px;height:46px;flex:0 0 auto}
+.v-b .lantern::before{content:"";position:absolute;inset:-6px;border-radius:50%;background:radial-gradient(circle,rgba(232,150,64,.45),transparent 70%)}
+.v-b .lantern img{position:relative;width:46px;height:46px;object-fit:contain}
+.v-b .top .t{flex:1;min-width:0}
+.v-b .top b{display:block;font-size:13px;color:#c9b393;font-weight:650}
+.v-b .top strong{display:block;font-family:"Avenir Next Condensed","Oswald",Impact,sans-serif;font-weight:800;font-size:27px;letter-spacing:.01em;text-transform:uppercase;line-height:1.05;color:#f8ecd6}
+.v-b .add{width:44px;height:44px;border-radius:50%;border:1px solid #4a3a2c;background:#241d18;color:#f2c879;display:grid;place-items:center;transition:transform 120ms var(--ease-out)}
+.v-b .add:active{transform:scale(.94)}
+.v-b .bar{display:flex;align-items:center;justify-content:space-between;padding:6px 16px 10px}
+.v-b .bar span{font-size:13px;color:#c9b393;font-weight:600}
+.v-b .chip{min-height:44px;padding:0 14px 0 16px;border-radius:999px;border:1px solid #57412d;background:#2a211b;color:#f2c879;font-weight:750;font-size:14px;display:inline-flex;align-items:center;gap:6px;transition:transform 120ms var(--ease-out)}
+.v-b .chip:active{transform:scale(.96)}
+.v-b .rows{display:grid;gap:12px;padding:0 12px}
+.v-b .slot{height:140px;touch-action:pan-y}
+.v-b .card{position:absolute;inset:0;display:grid;grid-template-columns:120px 1fr;gap:12px;padding:10px;border-radius:20px;background:#241d18;border:1px solid #33271f}
+.v-b .card .photo{border-radius:14px;box-shadow:0 0 0 1px rgba(255,236,200,.08),0 12px 34px -8px var(--glow)}
+.v-b .card .photo::after{content:"";position:absolute;inset:0;background:radial-gradient(90% 70% at 50% 15%,rgba(255,214,150,.22),transparent 70%)}
+.v-b .info{display:flex;flex-direction:column;min-width:0}
+.v-b .sign{align-self:flex-start;display:flex;align-items:baseline;gap:8px;max-width:100%;padding:5px 10px 4px;border-radius:6px;background:var(--sign);color:#fbefd9;box-shadow:inset 0 0 0 2px rgba(255,240,215,.22);transform-origin:50% 50%;backface-visibility:hidden}
+.v-b .sign i{font-style:normal;font-family:"Avenir Next Condensed","Oswald",Impact,sans-serif;font-size:13px;font-weight:700;opacity:.8}
+.v-b .sign h3{margin:0;font-family:"Avenir Next Condensed","Oswald",Impact,sans-serif;font-size:21px;line-height:1.05;font-weight:800;text-transform:uppercase;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v-b .meta{margin:6px 0 0;font-size:13px;color:#c9b393;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v-b .acts{margin-top:auto;display:flex;gap:6px;align-items:center}
+.v-b .choose{min-height:44px;padding:0 16px;border:0;border-radius:12px;background:#f2c879;color:#2a1a0e;font-weight:850;font-size:14px;letter-spacing:.02em;text-transform:uppercase;transition:transform 120ms var(--ease-out)}
+.v-b .choose:active{transform:scale(.96)}
+.v-b .skip{min-height:44px;padding:0 12px;border:0;background:none;color:#c9b393;font-size:14px;font-weight:650}
+.v-b .slot.flipping .sign{transform:rotateX(90deg);transition:transform 150ms ease-in}
+.v-b .slot.flipped-in .sign{transform:rotateX(-90deg);transition:none}
+.v-b .sign{transition:transform 240ms var(--ease-out)}
+.v-b .card.out{transform:translateX(-110%);opacity:0;transition-duration:220ms}
+.v-b .card.in{transform:translateX(40px);opacity:0;transition:none}
+.v-b .card.dragging{transition:none}
+.v-b .slot.is-chosen .card{border-color:#f2c879;box-shadow:0 0 0 1px #f2c879,0 0 28px -6px rgba(242,200,121,.55)}
+.v-b .slot.is-chosen .choose{background:#fbefd9}
+.v-b.has-choice .slot:not(.is-chosen) .card{opacity:.5}
+.v-b .lit{display:none;margin-left:6px;font-size:12px;font-weight:800;color:#f2c879;letter-spacing:.1em}
+.v-b .slot.is-chosen .lit{display:inline}
+.v-b .slot.is-chosen .skip{display:none}
+.v-b .hint{margin:12px 16px 0;font-size:13px;color:#a89478}
+.v-b .toast{background:#f3e7d3;color:#1a1512}.v-b .toast button{background:#1a1512;color:#f2c879}
+.v-b .sheet{background:#241d18;color:#f3e7d3}
+.v-b .opt{border:1px solid #4a3a2c;background:#2a211b;color:#f3e7d3}
+.v-b .opt[aria-pressed="true"]{background:#f2c879;border-color:#f2c879;color:#1a1512}
+.v-b .done{background:#f2c879;color:#1a1512}
+.v-b .nav{background:rgba(26,21,18,.94);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-top:1px solid #33271f;color:#a89478}
+.v-b .nav [aria-current]{color:#f2c879;background:#2a211b}
+
+/* ================= C · Kitchen Table ================= */
+.v-c{color:#24304f;background-color:#e7ebee;background-image:
+  repeating-linear-gradient(0deg,rgba(60,90,130,.06) 0 14px,transparent 14px 28px),
+  repeating-linear-gradient(90deg,rgba(60,90,130,.06) 0 14px,transparent 14px 28px)}
+.v-c .top{display:flex;align-items:flex-start;justify-content:space-between;padding:16px 16px 0}
+.v-c h1{margin:0;font-family:"Bradley Hand","Kalam","Noteworthy",cursive;font-weight:700;font-size:32px;line-height:1.05;color:#24304f}
+.v-c .sub{margin:4px 0 0;font-size:14px;font-weight:600;color:#55607a}
+.v-c .add{width:44px;height:44px;border-radius:50%;border:1.5px dashed #8391b0;background:rgba(255,255,255,.6);color:#24304f;display:grid;place-items:center;flex:0 0 auto;transition:transform 120ms var(--ease-out)}
+.v-c .add:active{transform:scale(.94)}
+.v-c .chip{margin:10px 16px 0;min-height:44px;padding:0 14px 0 16px;border:0;border-radius:10px;background:#fffef8;color:#24304f;font-weight:750;font-size:14px;display:inline-flex;align-items:center;gap:6px;box-shadow:0 1px 0 rgba(0,0,0,.06),0 4px 10px rgba(36,48,79,.1);transform:rotate(-1deg);transition:transform 120ms var(--ease-out)}
+.v-c .chip:active{transform:rotate(-1deg) scale(.96)}
+.v-c .table{position:relative;height:440px;margin:8px 0 0}
+.v-c .slot{position:absolute}
+.v-c .slot[data-slot="0"]{left:10px;top:6px;width:214px;--r:-3deg;z-index:2}
+.v-c .slot[data-slot="1"]{right:10px;top:0;width:156px;--r:4deg;z-index:1}
+.v-c .slot[data-slot="2"]{right:12px;top:226px;width:166px;--r:-2deg;z-index:3}
+.v-c .card{background:#fffffb;padding:8px 8px 6px;border-radius:3px;box-shadow:0 1px 1px rgba(0,0,0,.08),0 10px 22px -6px rgba(36,48,79,.32);transform:rotate(var(--r))}
+.v-c .card .photo{height:var(--ph,176px);border-radius:1px}
+.v-c .slot[data-slot="1"] .card{--ph:118px}
+.v-c .slot[data-slot="2"] .card{--ph:112px}
+.v-c .cap{padding:6px 2px 0}
+.v-c .cap h3{margin:0;font-family:"Bradley Hand","Kalam","Noteworthy",cursive;font-weight:700;font-size:19px;line-height:1.1;color:#24304f}
+.v-c .cap p{margin:2px 0 0;font-family:"Bradley Hand","Kalam","Noteworthy",cursive;font-size:15px;line-height:1.15;color:#55607a}
+.v-c .stamp{position:absolute;top:14px;right:12px;width:56px;height:56px;border-radius:50%;border:2.5px solid rgba(178,59,46,.85);color:rgba(178,59,46,.9);display:grid;place-items:center;text-align:center;font:800 12px/1 "Courier New",ui-monospace,monospace;letter-spacing:.04em;text-transform:uppercase;transform:rotate(12deg);background:rgba(255,255,255,.18);mix-blend-mode:multiply}
+.v-c .slot:not([data-slot="0"]) .stamp{width:48px;height:48px;font-size:12px;top:12px;right:10px}
+.v-c .acts{display:flex;gap:6px;align-items:center;margin-top:4px}
+.v-c .choose{min-height:44px;padding:0 11px;border:0;border-radius:8px;background:#24304f;color:#fffef8;font-weight:800;font-size:14px;transition:transform 120ms var(--ease-out)}
+.v-c .choose:active{transform:scale(.96)}
+.v-c .skip{min-height:44px;min-width:44px;padding:0 4px;white-space:nowrap;border:0;background:none;color:#55607a;font-family:"Bradley Hand","Kalam","Noteworthy",cursive;font-size:16px;font-weight:700;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+.v-c .tape{position:absolute;top:-12px;left:50%;width:78px;height:24px;background:rgba(214,200,120,.65);transform:translateX(-50%) rotate(-4deg) scaleX(.4);opacity:0;transition:transform 260ms var(--ease-out),opacity 200ms;box-shadow:0 1px 2px rgba(0,0,0,.08);pointer-events:none}
+.v-c .slot.is-chosen .tape{opacity:1;transform:translateX(-50%) rotate(-4deg) scaleX(1)}
+.v-c .tonight{position:absolute;bottom:-26px;left:6px;font-family:"Bradley Hand","Kalam","Noteworthy",cursive;font-weight:700;font-size:20px;color:#b23b2e;opacity:0;transform:rotate(-6deg) translateY(4px);transition:opacity 200ms,transform 260ms var(--ease-out);pointer-events:none}
+.v-c .slot.is-chosen .tonight{opacity:1;transform:rotate(-6deg)}
+.v-c.has-choice .slot:not(.is-chosen) .card{opacity:.6}
+.v-c .card.out{transform:translate(120px,-30px) rotate(calc(var(--r) + 16deg));opacity:0;transition-duration:240ms}
+.v-c .card.in{transform:translateY(-28px) rotate(calc(var(--r) - 7deg)) scale(1.04);opacity:0;transition:none}
+.v-c .card.settle{transition:transform 360ms cubic-bezier(.34,1.4,.64,1),opacity 200ms var(--ease-out)}
+.v-c .doodle{position:absolute;left:12px;top:340px;width:190px;display:flex;gap:8px;align-items:flex-end}
+.v-c .doodle img{width:46px;transform:rotate(-6deg)}
+.v-c .doodle p{margin:0;padding:8px 10px;background:#fff7b8;font-family:"Bradley Hand","Kalam","Noteworthy",cursive;font-size:15px;line-height:1.15;color:#3d3b1f;transform:rotate(2deg);box-shadow:0 6px 12px -6px rgba(0,0,0,.3)}
+.v-c .toast{background:#24304f;color:#fffef8;font-family:inherit}.v-c .toast button{background:#fffef8;color:#24304f}
+.v-c .sheet{background:#fffffb;color:#24304f}
+.v-c .opt{border:1.5px solid #c9d0de;background:#fff;color:#24304f}
+.v-c .opt[aria-pressed="true"]{background:#24304f;border-color:#24304f;color:#fffef8}
+.v-c .done{background:#24304f;color:#fffef8}
+.v-c .nav{background:rgba(255,255,251,.94);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-top:1px solid #d6dbe4;color:#55607a}
+.v-c .nav [aria-current]{color:#24304f;background:#e7ebee}
+
+/* Reduced motion: swaps become a short cross-fade, no travel, no bounce */
+@media (prefers-reduced-motion: reduce){
+  .card,.card.settle,.v-b .sign,.v-c .tape,.v-c .tonight,.toast,.sheet,.scrim{transition-duration:120ms!important;transition-timing-function:ease-out!important}
+  .card.out,.card.in{transform:none!important}
+  .v-b .card.out{transform:none!important}
+  .v-a .peek{display:none}
+  .v-b .slot.flipping .sign,.v-b .slot.flipped-in .sign{transform:none;opacity:.2}
+}
+
+/* Harness-only photo loader (chrome, not part of any design) */
+.proto-photos{position:fixed;top:calc(66px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:2147483646;min-height:28px;padding:0 12px;border:0;border-radius:999px;background:rgba(10,10,10,.82);color:rgba(255,255,255,.8);font:13px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+
+/* ===== Picker: verbatim from the prototype skill's PICKER.md ===== */
+.proto-picker {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(10, 10, 10, 0.82);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  backdrop-filter: blur(12px) saturate(1.4);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+    0 8px 24px rgba(0, 0, 0, 0.24),
+    0 2px 6px rgba(0, 0, 0, 0.12);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.proto-picker-highlight {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  will-change: transform;
+}
+
+/* The slide is enabled only after first paint (data-ready), so load doesn't animate. */
+.proto-picker[data-ready] .proto-picker-highlight {
+  transition:
+    transform 250ms cubic-bezier(0.23, 1, 0.32, 1),
+    width 250ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .proto-picker[data-ready] .proto-picker-highlight { transition: none; }
+}
+
+.proto-picker-item {
+  position: relative; /* sits above the highlight */
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font: inherit;
+  cursor: pointer;
+  transition: color 150ms ease-out;
+}
+
+.proto-picker-item:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.proto-picker-item:active {
+  transform: scale(0.97);
+}
+
+.proto-picker-item:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.4);
+  outline-offset: 2px;
+}
+
+.proto-picker-item[data-active] {
+  color: #fff;
+}
+
+.proto-picker-divider {
+  width: 1px;
+  height: 16px;
+  margin: 0 4px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.proto-picker-replay {
+  padding: 0 10px;
+  font-size: 14px;
+}
+
+.proto-picker[data-position="top"] {
+  bottom: auto;
+  top: 24px;
+}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+
+<nav class="proto-picker" data-position="top" aria-label="Prototype variants">
+  <span class="proto-picker-highlight" aria-hidden="true"></span>
+  <button class="proto-picker-item" data-active aria-current="true">Scallion &amp; Plate</button>
+  <button class="proto-picker-item">Night Market</button>
+  <button class="proto-picker-item">Kitchen Table</button>
+  <span class="proto-picker-divider" aria-hidden="true"></span>
+  <button class="proto-picker-item proto-picker-replay" aria-label="Replay animation (R)">↻</button>
+</nav>
+<button class="proto-photos" type="button" id="proto-photos">Use my photos</button>
+<input type="file" id="proto-photo-input" accept="image/*" multiple hidden />
+
+<script>
+'use strict';
+const LEEK='data:image/webp;base64,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';
+const RM=matchMedia('(prefers-reduced-motion: reduce)');
+
+/* Real dishes from Nouri's starter shelf, plus one saved craving. Painted plates stand in for photos. */
+const DISHES=[
+  {id:'gyudon',title:'Ginger beef gyudon',cuisine:'Japanese',min:25,vibe:'comfort',why:'Cozy, quick, and you have rice',stamp:['25','min'],pal:['#d9c3a0','#6b3d22','#f2e6cf','#8a5a33','#c9d98a','#e8b04a','#3b2a1e','#57402c'],glow:'rgba(214,140,70,.55)',sign:'#a3362b',from:'Starter shelf'},
+  {id:'krapao',title:'Pad kra pao',cuisine:'Thai',min:30,vibe:'explore',why:'Big savory heat in half an hour',stamp:['30','min'],pal:['#efe9dc','#7a3b22','#f7f3ea','#d93a26','#4e8a3a','#f4c542','#2a2f2a','#3c463c'],glow:'rgba(217,72,40,.55)',sign:'#2f6b52',from:'Starter shelf'},
+  {id:'chili',title:'Crispy chili oil noodles',cuisine:'Sichuan-ish',min:20,vibe:'explore',why:'The one you saved from TikTok Thursday',stamp:['20','min'],pal:['#e9d7b9','#9a2a17','#f3eadb','#e8623a','#6aa04a','#f0d18a','#2f2522','#4a3833'],glow:'rgba(232,90,50,.6)',sign:'#b8322a',from:'Saved from TikTok'},
+  {id:'miquang',title:'Mì Quảng, round two',cuisine:'Vietnamese',min:150,vibe:'explore',why:'Last time the broth wanted more depth',stamp:['2½','hrs'],pal:['#e8c25a','#c8862b','#f6efe0','#e85a3a','#7db04a','#f2d28a','#2c3a33','#41544a'],glow:'rgba(230,170,60,.55)',sign:'#c8862b',from:'Your journal'},
+  {id:'chicken',title:'Hainanese chicken rice',cuisine:'Singaporean',min:100,vibe:'comfort',why:'Fragrant rice and three good sauces',stamp:['100','min'],pal:['#f3e9cf','#e6cf9a','#ffffff','#c23a2a','#6aa04a','#efe0b0','#3a4650','#53626e'],glow:'rgba(240,200,120,.5)',sign:'#2f6b52',from:'Starter shelf'},
+  {id:'garlic',title:'Garlic butter noodles',cuisine:'Fusion',min:20,vibe:'comfort',why:'Your never-fails Tuesday standby',stamp:['20','min'],pal:['#efd9a0','#d9b45c','#fbf6ea','#7fb04a','#f3e2b0','#c99a3a','#3f3a34','#58514a'],glow:'rgba(230,190,90,.5)',sign:'#a3362b',from:'Starter shelf'},
+  {id:'tofu',title:'Crispy tofu rice bowls',cuisine:'Korean-inspired',min:35,vibe:'explore',why:'Crunchy, fresh, sauce-forward',stamp:['35','min'],pal:['#efe4cc','#d99a4a','#f7f1e3','#d9452a','#6aa04a','#2a2a2a','#33403a','#4a5a52'],glow:'rgba(220,150,70,.5)',sign:'#c8862b',from:'Starter shelf'},
+  {id:'charsiu',title:'Homemade char siu',cuisine:'Cantonese',min:180,vibe:'explore',why:'A glossy weekend project',stamp:['3','hrs'],pal:['#e9d2b0','#8f2a1f','#f6eee0','#c43a2a','#7db04a','#f0c060','#2c2622','#463b34'],glow:'rgba(200,60,40,.55)',sign:'#b8322a',from:'Starter shelf'},
+];
+const byId=id=>DISHES.find(d=>d.id===id);
+const esc=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const mins=m=>m>=60?(m%60?`${Math.floor(m/60)} hr ${m%60} min`:`${m/60} hr`):`${m} min`;
+
+/* Harness photo store: user-supplied photos replace painted plates, in dish order */
+let PHOTOS=[];
+try{PHOTOS=JSON.parse(localStorage.getItem('nouri-proto-photos')||'[]')}catch{PHOTOS=[]}
+function photo(d,extra=''){
+  const i=DISHES.indexOf(d),[base,rim,t1,a1,a2,a3,tt1,tt2]=d.pal;
+  const src=PHOTOS.length?PHOTOS[i%PHOTOS.length]:null;
+  return `<div class="photo ${extra}" style="--base:${base};--rim:${rim};--a1:${a1};--a2:${a2};--a3:${a3};--t1:${tt1};--t2:${tt2}" role="img" aria-label="${esc(d.title)}">${src?`<img src="${src}" alt="">`:''}</div>`;
+}
+
+/* ---------- shared state ---------- */
+const S={time:'any',vibe:'any',picks:[],queue:[],chosen:null,last:null};
+const match=d=>(S.time==='any'||(S.time==='quick'?d.min<=30:d.min>=60))&&(S.vibe==='any'||d.vibe===S.vibe);
+function rank(){const ok=DISHES.filter(match),rest=DISHES.filter(d=>!match(d));const all=[...ok,...rest];S.picks=all.slice(0,3).map(d=>d.id);S.queue=all.slice(3).map(d=>d.id);S.chosen=null;S.last=null}
+const chipLabel=()=>`${{any:'Any time',quick:'Under 30 min',project:'A project'}[S.time]} · ${{any:'Anything',comfort:'Comfort',explore:'Explore'}[S.vibe]}`;
+const chev='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+const plus='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+const xIcon='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+const check='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>';
+const I={home:'<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>',bookmark:'<path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1Z"/>',bag:'<path d="M4 9h16l-1.5 12h-13L4 9ZM9 9V6a3 3 0 0 1 6 0v3"/>',book:'<path d="M12 7c-3-2-6-2-10-2v15c4 0 7 0 10 2 3-2 6-2 10-2V5c-4 0-7 0-10 2Zm0 0v15"/>'};
+const nav=()=>`<nav class="nav" aria-label="Main">${[['home','Today'],['bookmark','Cravings'],['bag','This week'],['book','Journal']].map(([k,l],i)=>`<button data-act="nav" ${i===0?'aria-current="page"':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[k]}</svg>${l}</button>`).join('')}</nav>`;
+const sheet=()=>`<div class="scrim" data-act="close-adjust"></div><section class="sheet" role="dialog" aria-modal="true" aria-label="Adjust picks"><h3>Adjust tonight's picks</h3><p>Nouri re-picks three from your shelf. Nothing gets deleted.</p>
+<div class="grp"><div class="lbl">Time</div><div class="opts">${[['any','Any time'],['quick','Under 30 min'],['project','A project']].map(([v,l])=>`<button class="opt" data-act="opt" data-k="time" data-val="${v}" aria-pressed="${S.time===v}">${l}</button>`).join('')}</div></div>
+<div class="grp"><div class="lbl">Vibe</div><div class="opts">${[['any','Anything'],['comfort','Comfort'],['explore','Explore']].map(([v,l])=>`<button class="opt" data-act="opt" data-k="vibe" data-val="${v}" aria-pressed="${S.vibe===v}">${l}</button>`).join('')}</div></div>
+<button class="done" data-act="close-adjust">Show my picks</button></section>`;
+const toast=()=>`<div class="toast" role="status" aria-live="polite"><span></span><button data-act="undo">Undo</button></div>`;
+const today=new Date().toLocaleDateString('en-US',{weekday:'long'});
+
+/* ---------- the three directions ---------- */
+const V=[
+ { key:'a',
+   shell:cards=>`<header class="top"><div class="hi"><img src="${LEEK}" alt=""><div><b>${today} night</b><strong>What sounds good?</strong></div></div><button class="add" data-act="add" aria-label="Save a craving">${plus}</button></header>
+   <section class="panel" aria-label="Tonight's three picks"><div class="panel-head"><span>Three from your shelf</span><button class="chip" data-act="adjust" aria-haspopup="dialog">Adjust ${chev}</button></div><div class="grid">${cards}</div></section>
+   <p class="note">Change your mind anytime. Skipped dishes go back on the shelf.</p>`,
+   card:(d,i)=>`<div class="slot" data-slot="${i}"><img class="peek" src="${LEEK}" alt=""><article class="card">${photo(d)}${i===0?`<span class="tag">${esc(d.from)}</span>`:''}
+     <button class="skip" data-act="skip" aria-label="Not tonight: ${esc(d.title)}">${i===0?'Not tonight':xIcon}</button>
+     <div class="strip"><div class="t"><h3>${esc(d.title)}</h3><p>${mins(d.min)} · ${esc(d.cuisine)}</p>${i===0?`<span class="why">${esc(d.why)}</span>`:''}</div>
+     <button class="choose" data-act="choose" aria-label="Choose ${esc(d.title)}">${i===0?'Choose':check}</button></div></article></div>`,
+   swap:'nudge' },
+ { key:'b',
+   shell:cards=>`<header class="top"><div class="lantern"><img src="${LEEK}" alt=""></div><div class="t"><b>${today} · 3 stalls open</b><strong>Tonight's stalls</strong></div><button class="add" data-act="add" aria-label="Save a craving">${plus}</button></header>
+   <div class="bar"><span>Swipe a stall away to see another</span><button class="chip" data-act="adjust" aria-haspopup="dialog">Adjust ${chev}</button></div>
+   <section class="rows" aria-label="Tonight's three picks">${cards}</section>`,
+   card:(d,i)=>`<div class="slot" data-slot="${i}" style="--glow:${d.glow};--sign:${d.sign}"><article class="card">${photo(d)}<div class="info">
+     <div class="sign"><i>0${i+1}</i><h3>${esc(d.title)}</h3></div><p class="meta">${mins(d.min)} · ${esc(d.cuisine)} · ${esc(d.why)}</p>
+     <div class="acts"><button class="choose" data-act="choose" aria-label="Choose ${esc(d.title)}">Eat this</button><button class="skip" data-act="skip" aria-label="Not tonight: ${esc(d.title)}">Not tonight</button><span class="lit">TONIGHT</span></div></div></article></div>`,
+   swap:'flip' },
+ { key:'c',
+   shell:cards=>`<header class="top"><div><h1>What's for dinner?</h1><p class="sub">Three prints from your shelf</p></div><button class="add" data-act="add" aria-label="Save a craving">${plus}</button></header>
+   <button class="chip" data-act="adjust" aria-haspopup="dialog">${chipLabel()} ${chev}</button>
+   <section class="table" aria-label="Tonight's three picks">${cards}<div class="doodle"><img src="${LEEK}" alt=""><p>Toss one off the table and I'll find another.</p></div></section>`,
+   card:(d,i)=>`<div class="slot" data-slot="${i}"><article class="card"><span class="tape"></span>${photo(d)}<span class="stamp">${esc(d.stamp[0])}<br>${esc(d.stamp[1])}</span>
+     <div class="cap"><h3>${esc(d.title)}</h3>${i===0?`<p>${esc(d.why)}</p>`:''}</div>
+     <div class="acts"><button class="choose" data-act="choose" aria-label="Choose ${esc(d.title)}">${i===0?'Cook this':'This one'}</button><button class="skip" data-act="skip" aria-label="Not tonight: ${esc(d.title)}">${i===0?'not tonight':'nah'}</button></div></article><span class="tonight">tonight!</span></div>`,
+   swap:'toss' },
+];
+
+/* ---------- rendering + motion ---------- */
+let cur=null;
+function render(v){S.time='any';S.vibe='any';rank();cur=v;return `<div class="v v-${v.key}" data-v="${v.key}">${v.shell(S.picks.map((id,i)=>v.card(byId(id),i)).join(''))}${toast()}${sheet()}${nav()}</div>`}
+const root=()=>document.querySelector('#stage .v');
+const wait=(ms)=>new Promise(r=>setTimeout(r,ms));
+const frame=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+
+async function swapSlot(i,id,reason){
+  const v=cur,slot=root().querySelector(`.slot[data-slot="${i}"]`);if(!slot)return;
+  const tmp=document.createElement('div');tmp.innerHTML=v.card(byId(id),i);const fresh=tmp.firstElementChild;
+  const replaceCard=()=>{const old=slot.querySelector('.card');const nc=fresh.querySelector('.card');old.replaceWith(nc);if(v.key==='b'){slot.style.setProperty('--glow',byId(id).glow);slot.style.setProperty('--sign',byId(id).sign)}return nc};
+  if(RM.matches){const c=slot.querySelector('.card');c.style.opacity='0';await wait(120);const nc=replaceCard();nc.style.opacity='0';await frame();nc.style.opacity='';return}
+  const card=slot.querySelector('.card');
+  if(v.swap==='nudge'){
+    card.classList.add('out');slot.classList.add('nudging');await wait(170);
+    const nc=replaceCard();nc.classList.add('in');await frame();nc.classList.remove('in');
+    await wait(160);slot.classList.remove('nudging');
+  }else if(v.swap==='flip'&&reason!=='swipe'){
+    slot.classList.add('flipping');await wait(150);
+    const nc=replaceCard();slot.classList.remove('flipping');slot.classList.add('flipped-in');await frame();slot.classList.remove('flipped-in');
+  }else if(v.swap==='flip'){
+    card.classList.add('out');await wait(200);const nc=replaceCard();nc.classList.add('in');await frame();nc.classList.remove('in');
+  }else{ /* toss */
+    card.classList.add('out');await wait(200);
+    const nc=replaceCard();nc.classList.add('in');await frame();nc.classList.add('settle');nc.classList.remove('in');await wait(380);nc.classList.remove('settle');
+  }
+}
+let tTimer;
+function say(text,undo){const t=root().querySelector('.toast');t.querySelector('span').textContent=text;t.querySelector('button').hidden=!undo;t.classList.add('is-on');clearTimeout(tTimer);tTimer=setTimeout(()=>t.classList.remove('is-on'),4200)}
+function paintChoice(){const r=root();r.classList.toggle('has-choice',!!S.chosen);r.querySelectorAll('.slot').forEach((s,i)=>{const on=S.picks[i]===S.chosen;s.classList.toggle('is-chosen',on);const b=s.querySelector('.choose');if(b)b.setAttribute('aria-pressed',on)})}
+
+let busy=false;
+async function skip(i,reason){
+  if(busy)return;busy=true;
+  const id=S.picks[i],next=S.queue.shift();S.queue.push(id);S.picks[i]=next;
+  if(S.chosen===id)S.chosen=null;
+  S.last={type:'skip',i,id,next};paintChoice();
+  await swapSlot(i,next,reason);paintChoice();say(`${byId(id).title} is back on the shelf`,true);busy=false;
+}
+function choose(i){
+  const id=S.picks[i],prev=S.chosen;S.chosen=prev===id?null:id;S.last={type:'choose',prev};paintChoice();
+  if(S.chosen)say(`${byId(id).title} it is. Added to tonight.`,true);else say('Back to deciding',false);
+}
+async function undo(){
+  const L=S.last;if(!L||busy)return;S.last=null;root().querySelector('.toast').classList.remove('is-on');
+  if(L.type==='choose'){S.chosen=L.prev;paintChoice();return}
+  busy=true;S.queue=S.queue.filter(x=>x!==L.id);S.queue.unshift(L.next);S.picks[L.i]=L.id;await swapSlot(L.i,L.id,'undo');paintChoice();busy=false;
+}
+async function rerank(){
+  busy=true;const before=[...S.picks];const keepTime=S.time,keepVibe=S.vibe;rank();S.time=keepTime;S.vibe=keepVibe;
+  const r=root();const chip=r.querySelector('.v-c .chip');if(chip)chip.innerHTML=`${chipLabel()} ${chev}`;
+  await Promise.all(S.picks.map((id,i)=>id===before[i]?null:wait(i*50).then(()=>swapSlot(i,id,'adjust'))));paintChoice();busy=false;
+}
+
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-act]');if(!el||!root()||!root().contains(el))return;
+  const slot=el.closest('.slot'),i=slot?Number(slot.dataset.slot):-1,act=el.dataset.act;
+  if(act==='skip')skip(i,'button');
+  else if(act==='choose')choose(i);
+  else if(act==='undo')undo();
+  else if(act==='adjust'){root().classList.add('adjusting');root().querySelector('.sheet .opt[aria-pressed="true"]')?.focus({preventScroll:true})}
+  else if(act==='close-adjust')root().classList.remove('adjusting');
+  else if(act==='opt'){const k=el.dataset.k;S[k]=el.dataset.val;root().querySelectorAll(`.opt[data-k="${k}"]`).forEach(b=>b.setAttribute('aria-pressed',b===el));rerank()}
+  else if(act==='add')say('Capture lives in the real app. This prototype is just Today.',false);
+  else if(act==='nav')say('Prototype covers Today only',false);
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&root()?.classList.contains('adjusting'))root().classList.remove('adjusting')});
+
+/* Night Market: swipe a stall left to skip (velocity or distance), rubber-band to the right */
+let drag=null;
+document.addEventListener('pointerdown',e=>{
+  const card=e.target.closest('.v-b .card');if(!card||e.target.closest('button')||busy)return;
+  drag={card,x:e.clientX,y:e.clientY,t:performance.now(),dx:0,id:e.pointerId,on:false};
+});
+document.addEventListener('pointermove',e=>{
+  if(!drag||e.pointerId!==drag.id)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+  if(!drag.on){if(Math.abs(dx)<8||Math.abs(dx)<Math.abs(dy)){if(Math.abs(dy)>10)drag=null;return}drag.on=true;drag.card.classList.add('dragging');drag.card.setPointerCapture?.(e.pointerId)}
+  drag.dx=dx>0?dx*0.25:dx;drag.card.style.transform=`translateX(${drag.dx}px)`;
+});
+function endDrag(e){
+  if(!drag||(e&&e.pointerId!==drag.id))return;const d=drag;drag=null;if(!d.on)return;
+  const v=Math.abs(d.dx)/(performance.now()-d.t);d.card.classList.remove('dragging');
+  if(d.dx<-90||(d.dx<-30&&v>0.11)){d.card.style.transform='';skip(Number(d.card.closest('.slot').dataset.slot),'swipe')}
+  else d.card.style.transform='';
+}
+document.addEventListener('pointerup',endDrag);document.addEventListener('pointercancel',endDrag);
+
+/* Harness photo loader: resize on device, keep locally, assign to dishes in order */
+const pInput=document.getElementById('proto-photo-input');
+document.getElementById('proto-photos').addEventListener('click',()=>pInput.click());
+pInput.addEventListener('change',async()=>{
+  const files=[...pInput.files].filter(f=>f.type.startsWith('image/')).slice(0,8);if(!files.length)return;
+  const out=[];for(const f of files){const url=URL.createObjectURL(f);try{const img=await new Promise((res,rej)=>{const im=new Image();im.onload=()=>res(im);im.onerror=rej;im.src=url});const s=Math.min(1,900/Math.max(img.naturalWidth,img.naturalHeight));const c=document.createElement('canvas');c.width=Math.round(img.naturalWidth*s);c.height=Math.round(img.naturalHeight*s);c.getContext('2d').drawImage(img,0,0,c.width,c.height);out.push(c.toDataURL('image/jpeg',.82))}catch{}finally{URL.revokeObjectURL(url)}}
+  PHOTOS=out;try{localStorage.setItem('nouri-proto-photos',JSON.stringify(out))}catch{}
+  pInput.value='';mount(current);
+});
+
+/* ===== Picker wiring: verbatim from PICKER.md ===== */
+const variants=V.map(v=>()=>render(v));
+const stage = document.getElementById('stage');
+const picker = document.querySelector('.proto-picker');
+const highlight = picker.querySelector('.proto-picker-highlight');
+const items = [...picker.querySelectorAll('.proto-picker-item:not(.proto-picker-replay)')];
+const replay = picker.querySelector('.proto-picker-replay');
+let current = 0;
+
+function moveHighlight() {
+  const el = items[current];
+  highlight.style.width = el.offsetWidth + 'px';
+  highlight.style.transform = `translateX(${el.offsetLeft}px)`;
+}
+
+function mount(i) {
+  stage.innerHTML = '';
+  // Clear first, render next frame, so entrance animations re-run.
+  requestAnimationFrame(() => { stage.innerHTML = variants[i](); });
+}
+
+function setActive(i) {
+  if (i < 0 || i >= variants.length) return;
+  current = i;
+  items.forEach((el, j) => {
+    el.toggleAttribute('data-active', j === i);
+    if (j === i) el.setAttribute('aria-current', 'true');
+    else el.removeAttribute('aria-current');
+  });
+  moveHighlight();
+  const url = new URL(location);
+  url.searchParams.set('v', i + 1);
+  history.replaceState(null, '', url);
+  mount(i);
+}
+
+items.forEach((el, i) => el.addEventListener('click', () => setActive(i)));
+replay?.addEventListener('click', () => mount(current));
+window.addEventListener('resize', moveHighlight);
+
+document.addEventListener('keydown', (e) => {
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const num = parseInt(e.key, 10);
+  if (num >= 1 && num <= variants.length) setActive(num - 1);
+  else if (e.key === 'ArrowRight') setActive((current + 1) % variants.length);
+  else if (e.key === 'ArrowLeft') setActive((current - 1 + variants.length) % variants.length);
+  else if (e.key === 'r' || e.key === 'R') mount(current);
+});
+
+setActive((parseInt(new URLSearchParams(location.search).get('v'), 10) || 1) - 1);
+// Enable the slide only after first paint, so load doesn't animate.
+requestAnimationFrame(() => requestAnimationFrame(() => picker.setAttribute('data-ready', '')));
+</script>
+</body>
+</html>
