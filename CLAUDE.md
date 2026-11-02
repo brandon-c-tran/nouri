@@ -1,5 +1,8 @@
 # Nouri — Claude Code project instructions
 
+> **Start here for product direction:** Read [docs/NOURI_PRODUCT_EXPERIENCE_BIBLE.md](docs/NOURI_PRODUCT_EXPERIENCE_BIBLE.md) before major product/UX decisions. For the current effort to convert the frontend concept into a genuinely usable app, follow [docs/NOURI_EXECUTION_HANDOFF.md](docs/NOURI_EXECUTION_HANDOFF.md). These docs are not feature-completeness claims: inspect the active branch and real running app first, and preserve existing user data and concurrent Claude session work.
+
+
 ## Mission
 Build **Nouri**, a deeply personal, mobile-first food companion. Nouri bridges the gap between *being inspired to eat something* and *actually eating it*: catch fleeting cravings (TikTok/video/photo/restaurant/memory), resurface the right options when groceries or a meal decision are due, adapt flexibly as cravings change, and learn from meals at home, at work, and out.
 
