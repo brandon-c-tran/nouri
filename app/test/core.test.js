@@ -114,3 +114,13 @@ test('displayName falls back to the spark, never an invented dish', () => {
   assert.equal(C.displayName(dish({ id: 'x', name: '', sources: [{ type: 'tiktok', url: 'u', note: '' }] })), 'TikTok save');
   assert.equal(C.displayName(dish({ id: 'y', name: '', sources: [{ type: 'text', note: 'that chili crisp egg thing' }] })), 'that chili crisp egg thing');
 });
+
+test('recommend: a save with a reason outranks an equally fresh bare save', () => {
+  const at = new Date(NOW - DAY / 2).toISOString();
+  const bare = ['b1', 'b2', 'b3'].map((id) => dish({ id, name: 'Bare ' + id, createdAt: at, sources: [{ id: id + 's', type: 'tiktok', url: 'u', note: '', at }] }));
+  const noted = dish({ id: 'n', name: 'Noted', createdAt: at, sources: [{ id: 'ns', type: 'text', note: 'that crunch', at }] });
+  for (let k = 0; k < 7; k++) {
+    const r = C.recommend({ dishes: [...bare, noted], meals: [], week: { options: [] }, now: NOW + k * DAY / 7 * 0 + k * 1 }, 3);
+    assert.ok(r.picks.some((p) => p.dish.id === 'n'));
+  }
+});

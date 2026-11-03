@@ -285,7 +285,18 @@
     $$('.nav [data-go]').forEach((b) => (b.dataset.go === v ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current')));
     if (v === 'today') { R.openedAt = Date.now(); renderToday(); intro(); } else render();
     window.scrollTo(0, 0);
+    setHash(v);
   }
+  /* Direct links for home-screen bookmarks: #today #saved #week #history, and #save opens capture. */
+  const ROUTES = ['today', 'saved', 'week', 'history'];
+  function setHash(v) { try { if (location.hash !== '#' + v) history.replaceState(null, '', '#' + v); } catch {} }
+  function route(given) {
+    const h = (typeof given === 'string' ? given : location.hash || '').replace('#', '');
+    if (h === 'save') { if (R.view !== 'today') go('today'); setHash('today'); newCapture(); return true; }
+    if (ROUTES.includes(h) && h !== R.view) { go(h); return true; }
+    return false;
+  }
+  addEventListener('hashchange', route);
   function render() {
     if (R.view === 'today') { if (!busy) renderToday(); }
     else if (R.view === 'saved') { const f = document.activeElement && document.activeElement.id === 'sv-q'; if (!f) renderSaved(); }
@@ -783,7 +794,9 @@ Reply with only JSON: {"amounts": string[] (ingredients with amounts for 2 servi
     S.subscribe(() => { render(); if (cookId && !pendingEntry) { const f = document.activeElement && document.activeElement.id === 'cook-note'; renderCook(); if (f) $('#cook-note').focus(); } if (sheet && (sheet.kind === 'dish' || sheet.kind === 'meal' || sheet.kind === 'settings')) drawSheet(); });
     renderToday();
     await S.boot(runtime);
+    const incoming = location.hash;
     go('today');
+    route(incoming);
     const ac = activeCook(); if (ac && sessionStorage.getItem('nouri-cook-open') === ac.id) openCook(ac.id);
   }
   addEventListener('visibilitychange', () => { try { if (cookId) sessionStorage.setItem('nouri-cook-open', cookId); else sessionStorage.removeItem('nouri-cook-open'); } catch {} });

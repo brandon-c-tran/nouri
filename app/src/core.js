@@ -156,6 +156,8 @@
     s += jitter;
     if (d.sample) { s -= own >= 3 ? 50 : 1; reasons.push({ w: 0, t: 'Sample idea' }); }
     if (inWeek) { s += 3; reasons.push({ w: 3, t: 'On your list this week' }); }
+    // Writing down why you want something is a stronger signal than a bare save.
+    if (!d.sample && (d.sources || []).some((x) => x.note)) s += 1.4;
     if (!d.sample && !h.count) {
       if (savedDays <= 3) { s += 3.2; reasons.push({ w: 3.2, t: spark && spark.note ? `Saved ${ago(savedAt, now)}: “${quote(spark.note)}”` : `Saved ${ago(savedAt, now)}` }); }
       else if (savedDays > 10) { s += 2.4; reasons.push({ w: 2.4, t: spark && spark.note ? `Saved ${ago(savedAt, now)} for “${quote(spark.note, 34)}”` : `Saved ${ago(savedAt, now)}, not tried yet` }); }

@@ -3,6 +3,12 @@
 The app Nouri runs as: a private claude.ai page (Artifact) at https://claude.ai/artifact/41Y2RFDUiUPex8k1zChmwE.
 `index.html` at the repo root is the original prototype; it is untouched, and its export file imports here.
 
+## Use it on your phone
+Open the link in Safari while signed in to claude.ai, then Share → Add to Home Screen.
+Direct links, each can be its own home-screen icon:
+- `…/41Y2RFDUiUPex8k1zChmwE#save` opens straight into Save a craving.
+- `#today`, `#saved`, `#week`, `#history` open that tab.
+
 ## Layout
 - `src/core.js`: data model and migration, link parsing, recommendations, grocery derivation. Pure functions.
 - `src/store.js`: persistence. Cloud (Artifact `db`, per user under `data/users/<id>/`) or browser storage outside claude.ai. Writes confirm before "Saved"; failed writes queue on the device and retry.

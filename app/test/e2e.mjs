@@ -199,6 +199,15 @@ await run('migration', {}, async (p) => {
   ok(/Bún chả/.test(await text(p, '#v-week')), 'I: imported plan is in this week');
 });
 
+await run('home-screen-links', {}, async (p) => {
+  await p.goto(URL_ + '#save'); await W(p, 900);
+  ok(/Save a craving/.test(await text(p, '#sh-body h2')), 'Links: #save opens straight into capture');
+  await p.goto(URL_ + '#week'); await p.reload(); await W(p, 800);
+  ok(await p.$('#v-week.on') !== null, 'Links: #week opens This week');
+  await p.click('.nav [data-go="history"]'); await W(p, 300);
+  ok(new URL(p.url()).hash === '#history', 'Links: the address follows the tab, so any tab can be bookmarked');
+});
+
 await run('local-fallback', { mock: false }, async (p) => {
   await p.fill('#cap-inline-text', 'Laksa'); await p.click('#cap-inline-save'); await W(p, 300);
   await reload(p);
