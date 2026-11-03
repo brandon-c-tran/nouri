@@ -106,9 +106,9 @@
   }
   const coverOf = (d) => {
     if (!d) return null;
-    if (d.photo && (d.photo.url || d.photo.data)) return d.photo;
+    if (d.photo && (d.photo.url || d.photo.data || d.photo.idb)) return d.photo;
     if (d.photoData) return { data: d.photoData };
-    const s = (d.sources || []).find((x) => x.photo && (x.photo.url || x.photo.data));
+    const s = (d.sources || []).find((x) => x.photo && (x.photo.url || x.photo.data || x.photo.idb));
     return s ? s.photo : null;
   };
   const displayName = (d) => {

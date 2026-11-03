@@ -3,7 +3,16 @@
 The app Nouri runs as: a private claude.ai page (Artifact) at https://claude.ai/artifact/41Y2RFDUiUPex8k1zChmwE.
 `index.html` at the repo root is the original prototype; it is untouched, and its export file imports here.
 
-## Use it on your phone
+## Installable app (PWA)
+Built to `app/dist/` and deployed to GitHub Pages by `.github/workflows/deploy-app.yml` on every push to `main`
+that touches `app/`. The address is https://brandon-c-tran.github.io/nouri/ once Pages is on.
+- One-time setup: repo Settings → Pages → Source: GitHub Actions. Private repos need a paid plan for Pages; otherwise make the repo public. Your food data is never in the repo.
+- Install: open the address in Safari → Share → Add to Home Screen.
+- Data lives on that phone: records in local storage, photos at full quality in IndexedDB. Back up from History → ••• → Export (share sheet → Save to Files); restore with Import. No cross-device sync and no Claude assists in this version.
+- Offline: a service worker caches the app; updates apply on the next open.
+- Tests: `node app/test/pwa.mjs`.
+
+## Use it on claude.ai
 Open the link in Safari while signed in to claude.ai, then Share → Add to Home Screen.
 Direct links, each can be its own home-screen icon:
 - `…/41Y2RFDUiUPex8k1zChmwE#save` opens straight into Save a craving.

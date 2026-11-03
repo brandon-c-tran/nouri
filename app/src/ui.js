@@ -43,8 +43,7 @@
   function cover(x, cls = '', opts = {}) {
     if (!x) return `<div class="cover ${cls}"></div>`;
     const ph = photoOf(x);
-    const src = ph && (ph.url || ph.data);
-    if (src) return `<div class="cover ${cls}"><img src="${esc(src)}" alt="" loading="lazy" decoding="async"></div>`;
+    if (hasPhoto(ph)) return `<div class="cover ${cls}"><img ${srcAttr(ph)} alt="" loading="lazy" decoding="async"></div>`;
     if (ART.has(x)) return `<div class="cover ${cls} ${opts.steam ? 'steamy' : ''}" style="--t:${ART.tableOf(x)}">${ART.sampleArt(x)}${opts.noMark || opts.mini ? '' : '<span class="sample-mark">Sample</span>'}</div>`;
     const s = (x.sources || [])[0] || { type: x.origin === 'meal' ? 'restaurant' : 'text' };
     const hue = C.hash(x.id || name(x)) % 7;
@@ -323,11 +322,37 @@
   let photoCb = null;
   function pickPhoto(cb) { photoCb = cb; const i = $('#file-photo'); i.value = ''; i.click(); }
   async function readPhoto(file) { const big = await downscale(file, 1600, 0.85); const small = await downscale(file, 420, 0.72); return { blob: big.blob, preview: small.data }; }
-  /** Durable photo: cloud asset when available, otherwise a small inline copy (disclosed in Data). */
+  /** On-device photo store (installed app, or anywhere without cloud assets): full-quality blobs in IndexedDB. */
+  const PDB = (() => {
+    let opening = null;
+    const ok = typeof indexedDB !== 'undefined';
+    const open = () => opening || (opening = new Promise((res, rej) => { const r = indexedDB.open('nouri-photos', 1); r.onupgradeneeded = () => r.result.createObjectStore('p'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }));
+    const run = async (mode, fn) => { const db = await open(); return new Promise((res, rej) => { const t = db.transaction('p', mode); const req = fn(t.objectStore('p')); t.oncomplete = () => res(req.result); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error); }); };
+    return { ok, put: (id, blob) => run('readwrite', (st) => st.put(blob, id)), get: (id) => run('readonly', (st) => st.get(id)) };
+  })();
+  const purl = new Map();
+  async function idbUrl(id) { if (purl.has(id)) return purl.get(id); try { const b = await PDB.get(id); if (!b) return ''; const u = URL.createObjectURL(b); purl.set(id, u); return u; } catch { return ''; } }
+  /** img src for any photo shape: picked preview, cloud url, inline data, or on-device id (filled in after render). */
+  const srcAttr = (p) => (!p ? '' : p.idb && !p.preview ? `data-idb="${esc(p.idb)}"${purl.has(p.idb) ? ` src="${esc(purl.get(p.idb))}"` : ''}` : `src="${esc(p.preview || p.url || p.data || '')}"`);
+  const hasPhoto = (p) => !!(p && (p.url || p.data || p.idb || p.preview));
+  function hydrate(root = document) { root.querySelectorAll('img[data-idb]:not([src])').forEach(async (img) => { const u = await idbUrl(img.dataset.idb); if (u) img.src = u; }); }
+  new MutationObserver(() => hydrate()).observe(document.body, { childList: true, subtree: true });
+  /** Durable photo: cloud asset on claude.ai; on-device full quality otherwise; small inline copy as a last resort. */
   async function storePhoto(p) {
     if (!p) return null;
     if (cap.assets) { try { const r = await cap.assets.upload(p.blob, { type: 'image/jpeg' }); return { id: r.id, url: r.url }; } catch {} }
+    if (PDB.ok) { try { const id = 'p' + C.uid(); await PDB.put(id, p.blob); return { idb: id }; } catch {} }
     return { data: p.preview };
+  }
+  const blobToData = (b) => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => rej(fr.error); fr.readAsDataURL(b); });
+  /** Every photo object inside a record, so backups can carry on-device photos and imports can restore them. */
+  async function mapPhotos(kind, x, fn) {
+    const y = JSON.parse(JSON.stringify(x));
+    const f = async (p) => (p ? (await fn(p)) || p : p);
+    if (kind === 'dishes') { y.photo = await f(y.photo); for (const s of y.sources || []) s.photo = await f(s.photo); if (y.target) y.target.photo = await f(y.target.photo); }
+    if (kind === 'meals') y.photos = await Promise.all((y.photos || []).map(f));
+    if (kind === 'cooks') for (const e of y.entries || []) e.photo = await f(e.photo);
+    return y;
   }
 
   /* ================= Claude assists (optional; the app never depends on them) ================= */
@@ -370,13 +395,17 @@ Reply with only JSON: {"amounts": string[] (ingredients with amounts for 2 servi
     drawSheet(true); requestAnimationFrame(() => { $('.scrim', root).classList.add('on'); $('.sheet', root).classList.add('on'); });
   }
   function closeSheet() { const root = $('#sheets'); const sh = $('.sheet', root); if (!sh) return; sh.classList.remove('on'); $('.scrim', root).classList.remove('on'); sheet = null; setTimeout(() => { if (!sheet) root.innerHTML = ''; }, RM.matches ? 120 : 320); }
-  function drawSheet(first) { if (!sheet) return; const b = $('#sh-body'); if (!b) return; const s = SHEETS[sheet.kind]; b.innerHTML = s.html(sheet.data); s.after && s.after(sheet.data, first); }
+  function drawSheet(first) {
+    if (!sheet) return; const b = $('#sh-body'); if (!b) return; const s = SHEETS[sheet.kind]; b.innerHTML = s.html(sheet.data); s.after && s.after(sheet.data, first);
+    if (sheet.data.photoBusy) { const pb = $('.photo-btn', b); if (pb) { pb.disabled = true; pb.innerHTML = '<span class="ph"><span class="spin"></span></span>Preparing photo…'; } $$('.btn.pri.block', b).forEach((x) => (x.disabled = true)); }
+  }
   const seg = (k, opts, v) => `<div class="seg" role="group">${opts.map(([val, l]) => `<button type="button" data-seg="${k}" data-v="${val}" aria-pressed="${v === val}">${l}</button>`).join('')}</div>`;
   const feelSeg = (v) => `<div class="feel" role="group" aria-label="How was it">${C.FEEL.map((f) => `<button type="button" data-seg="rating" data-v="${f.n}" aria-pressed="${v === f.n}">${f.label}</button>`).join('')}</div>`;
-  const photoBtn = (p, label = 'Add a photo') => `<button type="button" class="photo-btn" data-act="photo"><span class="ph">${p ? `<img src="${esc(p.preview || p.url || p.data)}" alt="">` : ico(I.cam, 22)}</span>${p ? 'Change photo' : label}</button>`;
+  const photoBtn = (p, label = 'Add a photo') => `<button type="button" class="photo-btn" data-act="photo"><span class="ph">${p ? `<img ${srcAttr(p)} alt="">` : ico(I.cam, 22)}</span>${p ? 'Change photo' : label}</button>`;
   const draft = () => { try { return JSON.parse(localStorage.getItem('nouri-draft') || '{}'); } catch { return {}; } };
   const setDraft = (v) => { try { localStorage.setItem('nouri-draft', JSON.stringify(v)); } catch {} };
 
+  const lastBackup = () => { let t = null; try { t = localStorage.getItem('nouri-last-backup'); } catch {} return t ? `Last backup ${C.ago(t)}.` : 'No backup yet.'; };
   const SHEETS = {
     capture: {
       html: (d) => { const f = d.f; const pc = C.parseCapture(f.text); return `<h2 id="sh-h">Save a craving</h2>
@@ -477,7 +506,7 @@ Reply with only JSON: {"amounts": string[] (ingredients with amounts for 2 servi
     },
     settings: {
       html: (s) => { const samples = dishes().filter((d) => d.sample); const ob = S.outboxCount(); return `<h2 id="sh-h">Your data</h2>
-        <div class="box"><h3>${D.kind === 'cloud' ? 'Synced to your Claude account' : 'Saved on this device only'}</h3><p class="small muted" style="margin:0">${D.kind === 'cloud' ? 'Open this page on any device you\'re signed in on.' : 'Clearing this browser\'s data would erase it. Export a backup.'}${ob ? ` ${ob} change${ob > 1 ? 's' : ''} waiting to sync.` : ''}${cap.assets ? '' : ' Photos are stored as small copies here.'}</p>${ob ? '<button class="btn line sm" style="margin-top:10px" data-act="retry">Try syncing now</button>' : ''}</div>
+        <div class="box"><h3>${D.kind === 'cloud' ? 'Synced to your Claude account' : 'Saved on this phone'}</h3><p class="small muted" style="margin:0">${D.kind === 'cloud' ? 'Open this page on any device you\'re signed in on.' : `Photos stay at full quality here. Make a backup now and then. ${lastBackup()}`}${ob ? ` ${ob} change${ob > 1 ? 's' : ''} waiting to sync.` : ''}</p>${ob ? '<button class="btn line sm" style="margin-top:10px" data-act="retry">Try syncing now</button>' : ''}</div>
         ${samples.length ? `<div class="box"><h3>Sample dishes</h3><p class="small muted" style="margin:0 0 10px">${samples.length} examples so the app isn't empty. They aren't yours and never count as your history.</p><button class="btn warn sm" data-act="rm-samples">Remove samples</button></div>` : ''}
         <div class="box"><h3>Move data in or out</h3><div style="display:grid;gap:8px;margin-top:8px"><button class="btn line" data-act="import">Import an export file</button><button class="btn line" data-act="export">Export everything</button></div><p class="note">Import accepts files from this app and from the first Nouri (History → Export all).</p></div>
         ${s.msg ? `<p class="note" role="status">${esc(s.msg)}</p>` : ''}`; },
@@ -491,7 +520,7 @@ Reply with only JSON: {"amounts": string[] (ingredients with amounts for 2 servi
     if (!ck.entries.length && !pendingEntry) return `<p class="muted">${editable ? 'Add photos and notes as you go. Each one saves right away.' : 'No notes from this cook.'}</p>`;
     const t0 = new Date(ck.startedAt).getTime();
     const list = [...ck.entries, ...(editable && pendingEntry ? [pendingEntry] : [])];
-    return `<ol class="tl">${list.map((e) => { const mn = Math.max(0, Math.round((new Date(e.at) - t0) / 60000)); return `<li class="${e.pending ? 'pending' : ''}"><div class="when">${mn ? `+${mn} min` : 'Start'}${e.component ? ` · ${esc(e.component)}` : ''}${e.pending ? ' · <span class="spin"></span> saving' : ''}${editable && !e.pending ? `<button class="del" data-act="entry-del" data-e="${esc(e.id)}" aria-label="Remove this entry">Remove</button>` : ''}</div>${e.photo ? `<div class="ph"><img src="${esc(e.photo.url || e.photo.data || e.photo.preview)}" alt="" loading="lazy"></div>` : ''}${e.note ? `<p>${esc(e.note)}</p>` : ''}</li>`; }).join('')}</ol>`;
+    return `<ol class="tl">${list.map((e) => { const mn = Math.max(0, Math.round((new Date(e.at) - t0) / 60000)); return `<li class="${e.pending ? 'pending' : ''}"><div class="when">${mn ? `+${mn} min` : 'Start'}${e.component ? ` · ${esc(e.component)}` : ''}${e.pending ? ' · <span class="spin"></span> saving' : ''}${editable && !e.pending ? `<button class="del" data-act="entry-del" data-e="${esc(e.id)}" aria-label="Remove this entry">Remove</button>` : ''}</div>${e.photo ? `<div class="ph"><img ${srcAttr(e.photo)} alt="" loading="lazy"></div>` : ''}${e.note ? `<p>${esc(e.note)}</p>` : ''}</li>`; }).join('')}</ol>`;
   }
   function openCook(id) {
     cookId = id; const el = $('#cook'); renderCook(); el.hidden = false; $('#cookbar').hidden = false;
@@ -587,7 +616,7 @@ Reply with only JSON: {"amounts": string[] (ingredients with amounts for 2 servi
     const f = s.f, now = C.iso(Date.now());
     let dish = f.dishId && D.dishes.get(f.dishId), created = false;
     if (!dish) { if (!f.title.trim()) return; const r = findOrMakeDish(f.title, f, now); dish = r.dish; created = r.created; }
-    const photo = f.photo ? (f.photo.url || f.photo.data ? f.photo : await storePhoto(f.photo)) : null;
+    const photo = f.photo ? (f.photo.blob ? await storePhoto(f.photo) : f.photo) : null;
     if (f.recreate) dish = { ...dish, origin: dish.origin, target: { mealId: s.mealId || 'pending', place: f.place || '', at: now, note: f.note || '', rating: f.rating || null, photo }, status: 'want' };
     const prevMeal = s.mealId && D.meals.get(s.mealId);
     const meal = { ...(prevMeal || { id: C.uid(), v: 2, at: now, sparkIds: (dish.sources || []).map((x) => x.id) }), dishId: dish.id, title: f.title.trim() || name(dish), where: f.where, place: f.where === 'home' || f.where === 'work' ? '' : f.place || '', rating: f.rating || null, note: f.note || '', photos: photo ? [photo] : prevMeal ? prevMeal.photos : [] };
@@ -612,19 +641,21 @@ Reply with only JSON: {"amounts": string[] (ingredients with amounts for 2 servi
     const rawDishes = j.dishes || st.ideas; const rawMeals = j.meals || st.meals || [];
     if (!Array.isArray(rawDishes)) { say("That file isn't a Nouri export."); return; }
     say('Importing…'); let n = 0, m = 0, k = 0;
+    const fromData = async (durl) => { try { return await storePhoto(await readPhoto(await (await fetch(durl)).blob())); } catch { return null; } };
+    const restore = (kind, x) => mapPhotos(kind, x, async (p) => (p.idb && typeof photos[p.idb] === 'string' ? fromData(photos[p.idb]) : p.idb && !photos[p.idb] ? { data: '' } : null));
     const pic = async (pid) => { const durl = pid && photos[pid]; if (typeof durl !== 'string' || !durl.startsWith('data:image/')) return null; try { const blob = await (await fetch(durl)).blob(); return await storePhoto(await readPhoto(blob)); } catch { return null; } };
     for (const raw of rawDishes) {
       if (!raw || !raw.id || D.dishes.has(raw.id)) continue; if (raw.source === 'starter' || raw.sample) continue;
-      const d = C.normalizeDish(raw); if (raw.photoId) { const p = await pic(raw.photoId); if (p) d.photo = p; }
+      let d = C.normalizeDish(raw); if (raw.photoId) { const p = await pic(raw.photoId); if (p) d.photo = p; } d = await restore('dishes', d);
       try { await S.put('dishes', d); n++; say(`Importing… ${n} saves`); } catch { break; }
     }
     for (const raw of rawMeals) {
       if (!raw || !raw.id || D.meals.has(raw.id)) continue;
-      const me = C.normalizeMeal(raw); if (raw.photoId) { const p = await pic(raw.photoId); if (p) me.photos = [p]; }
+      let me = C.normalizeMeal(raw); if (raw.photoId) { const p = await pic(raw.photoId); if (p) me.photos = [p]; } me = await restore('meals', me);
       if (me.dishId && !D.dishes.has(me.dishId)) me.dishId = null;
       try { await S.put('meals', me); m++; } catch { break; }
     }
-    for (const raw of j.cooks || []) { if (raw && raw.id && !D.cooks.has(raw.id)) { try { await S.put('cooks', C.normalizeCook(raw)); k++; } catch { break; } } }
+    for (const raw of j.cooks || []) { if (raw && raw.id && !D.cooks.has(raw.id)) { try { await S.put('cooks', await restore('cooks', C.normalizeCook(raw))); k++; } catch { break; } } }
     const plans = (j.state && (j.state.plans || (j.state.week && j.state.week.options && j.state.week.options.map((o) => o.dishId)))) || st.plans || [];
     const keep = plans.filter((id) => D.dishes.has(id) && !weekHas(id));
     if (keep.length) S.patch({ week: { ...D.st.week, options: [...D.st.week.options, ...keep.map((dishId) => ({ dishId, addedAt: C.iso(Date.now()) }))] } }).catch(() => {});
@@ -736,7 +767,12 @@ Reply with only JSON: {"amounts": string[] (ingredients with amounts for 2 servi
       }
       case 'photo': {
         const kind = sheet && sheet.kind; readSheet();
-        pickPhoto(async (file) => { try { const p = await readPhoto(file); if (!sheet || sheet.kind !== kind) return; if (sheet.data.f) sheet.data.f.photo = p; else sheet.data.photo = p; drawSheet(); } catch { toast("Couldn't read that photo"); } });
+        pickPhoto(async (file) => {
+          const data = sheet && sheet.data; if (data) { data.photoBusy = true; drawSheet(); }
+          try { const p = await readPhoto(file); if (!sheet || sheet.kind !== kind || sheet.data !== data) return; if (data.f) data.f.photo = p; else data.photo = p; }
+          catch { toast("Couldn't read that photo"); }
+          if (data) data.photoBusy = false; if (sheet && sheet.data === data) drawSheet();
+        });
         break;
       }
       case 'save-capture': {
@@ -748,9 +784,20 @@ Reply with only JSON: {"amounts": string[] (ingredients with amounts for 2 servi
       case 'rm-samples': { const ss = dishes().filter((d) => d.sample); for (const d of ss) S.del('dishes', d.id).catch(() => {}); const before = D.st.week; const opts = before.options.filter((o) => !ss.some((d) => d.id === o.dishId)); if (opts.length !== before.options.length) S.patch({ week: { ...before, options: opts } }); if (D.st.tonight && ss.some((d) => d.id === D.st.tonight.dishId)) S.patch({ tonight: null }); sheet.data.msg = 'Samples removed.'; drawSheet(); render(); break; }
       case 'import': $('#file-import').click(); break;
       case 'export': {
-        const data = JSON.stringify(S.exportAll(), null, 2); const fn = `nouri-${new Date().toISOString().slice(0, 10)}.json`;
-        if (cap.downloads) { try { await cap.downloads.save({ filename: fn, data }); sheet.data.msg = 'Exported.'; } catch (err) { sheet.data.msg = err && err.code === 'declined' ? 'Export cancelled.' : "Couldn't export from here."; } }
-        else sheet.data.msg = "Export isn't available in this view. Open Nouri on claude.ai to export.";
+        sheet.data.msg = 'Preparing backup…'; drawSheet();
+        const all = S.exportAll(); const photos = {};
+        const grab = async (p) => { if (p.idb && !photos[p.idb]) { const b = await PDB.get(p.idb).catch(() => null); if (b) photos[p.idb] = await blobToData(b); } return null; };
+        for (const kind of ['dishes', 'meals', 'cooks']) for (const x of all[kind]) await mapPhotos(kind, x, grab);
+        const data = JSON.stringify({ ...all, photos }, null, 2); const fn = `nouri-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        const done = (m) => { sheet.data.msg = m; try { localStorage.setItem('nouri-last-backup', C.iso(Date.now())); } catch {} };
+        try {
+          if (cap.downloads) { await cap.downloads.save({ filename: fn, data }); done('Exported.'); }
+          else {
+            const file = new File([data], fn, { type: 'application/json' });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Nouri backup' }); done('Backup shared. Save it to Files to keep it safe.'); }
+            else { const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = fn; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); done('Backup downloaded.'); }
+          }
+        } catch (err) { sheet.data.msg = (err && (err.name === 'AbortError' || err.code === 'declined')) ? 'Backup cancelled.' : "Couldn't make a backup from here."; }
         drawSheet(); break;
       }
     }
@@ -764,9 +811,9 @@ Reply with only JSON: {"amounts": string[] (ingredients with amounts for 2 servi
   document.addEventListener('input', (e) => {
     const t = e.target;
     if (t.id === 'sv-q') { R.q = t.value; const pos = t.selectionStart; renderSaved(); const n = $('#sv-q'); n.focus(); try { n.setSelectionRange(pos, pos); } catch {} }
-    if (t.id === 'cap-text' || t.id === 'cap-why') { readSheet(); const b = $('[data-act="save-capture"]'); if (b) b.disabled = !(sheet.data.f.text.trim() || sheet.data.f.photo); if (t.id === 'cap-text') { const had = !!$('.detected'); const has = !!C.parseCapture(t.value).link; if (had !== has) { const pos = t.selectionStart; drawSheet(); const n = $('#cap-text'); n.focus(); n.setSelectionRange(pos, pos); } } }
+    if (t.id === 'cap-text' || t.id === 'cap-why') { readSheet(); const b = $('[data-act="save-capture"]'); if (b) b.disabled = sheet.data.photoBusy || !(sheet.data.f.text.trim() || sheet.data.f.photo); if (t.id === 'cap-text') { const had = !!$('.detected'); const has = !!C.parseCapture(t.value).link; if (had !== has) { const pos = t.selectionStart; drawSheet(); const n = $('#cap-text'); n.focus(); n.setSelectionRange(pos, pos); } } }
     if (t.id === 'cap-inline-text') { setDraft({ ...draft(), text: t.value }); const b = $('#cap-inline-save'); if (b) b.disabled = !t.value.trim(); }
-    if (t.id === 'l-title') { const b = $('[data-act="save-log"]'); if (b) b.disabled = !t.value.trim(); }
+    if (t.id === 'l-title') { const b = $('[data-act="save-log"]'); if (b) b.disabled = (sheet && sheet.data.photoBusy) || !t.value.trim(); }
   });
   document.addEventListener('submit', async (e) => {
     if (e.target.id === 'g-add') { e.preventDefault(); const v = $('#g-in').value.trim(); if (!v) return; const g = D.st.groceries; S.patch({ groceries: { ...g, extras: [...(g.extras || []), { key: C.ingredientKey(v), name: v }] } }); renderWeek(); const n = $('#g-in'); n && n.focus(); }
@@ -793,6 +840,11 @@ Reply with only JSON: {"amounts": string[] (ingredients with amounts for 2 servi
     }
     S.subscribe(() => { render(); if (cookId && !pendingEntry) { const f = document.activeElement && document.activeElement.id === 'cook-note'; renderCook(); if (f) $('#cook-note').focus(); } if (sheet && (sheet.kind === 'dish' || sheet.kind === 'meal' || sheet.kind === 'settings')) drawSheet(); });
     renderToday();
+    if (!runtime) {
+      // Installed app / outside claude.ai: ask the phone to keep this data, and cache the app for offline use.
+      try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
+      if ('serviceWorker' in navigator && document.querySelector('link[rel="manifest"]')) navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
     await S.boot(runtime);
     const incoming = location.hash;
     go('today');

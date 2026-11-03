@@ -139,7 +139,7 @@ await run('journeys', {}, async (p) => {
   // E: eat out → recreate
   await p.click('.nav [data-go="history"]'); await W(p, 300);
   await p.click('#v-history .hd [data-act="log"]'); await W(p, 400);
-  { const fc = p.waitForEvent('filechooser'); await p.click('#sh-body [data-act="photo"]'); await (await fc).setFiles(join(here, 'fixtures/ramen.jpg')); await W(p, 500); }
+  { const fc = p.waitForEvent('filechooser'); await p.click('#sh-body [data-act="photo"]'); await (await fc).setFiles(join(here, 'fixtures/ramen.jpg')); await p.waitForSelector('#sh-body .photo-btn img', { timeout: 15000 }); }
   await p.fill('#l-title', 'Tonkotsu ramen'); await p.fill('#l-place', 'Ramen Tatsu');
   await p.click('#sh-body [data-seg="rating"][data-v="5"]'); await p.fill('#l-note', 'milky broth, thin noodles');
   await p.click('#sh-body [data-act="toggle-recreate"]'); await W(p, 150);
